@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>llm-json-repair-stream - 5s Side-by-Side Comparison</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .animate-spin-custom { animation: spin 1s linear infinite; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 antialiased p-6 min-h-screen flex flex-col items-center justify-center">
+  <div class="w-full max-w-4xl space-y-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+      <div>
+        <h1 class="text-lg font-bold text-emerald-400">llm-json-repair-stream</h1>
+        <p class="text-xs text-zinc-400">5-Second Side-by-Side Streaming Benchmark for LinkedIn Demo</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-replay" class="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold transition-colors flex items-center gap-1.5">
+          ↺ Replay 5s Demo
+        </button>
+        <button id="btn-record" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm">
+          <span id="rec-dot" class="w-2 h-2 rounded-full bg-white"></span>
+          <span id="rec-text">Download Clip (.webm)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Side-by-side comparison -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Left: Standard JSON.parse -->
+      <div class="rounded-xl border border-red-500/30 bg-red-950/10 p-4 flex flex-col justify-between min-h-[380px]">
+        <div>
+          <div class="flex items-center justify-between pb-2 mb-3 border-b border-red-500/20">
+            <span class="text-red-400 font-bold text-sm">❌ Standard JSON.parse()</span>
+            <span id="left-status-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
+              SyntaxError (Pending)
+            </span>
+          </div>
+
+          <div class="bg-black/60 rounded-lg p-2.5 text-xs font-mono text-zinc-400 border border-red-500/20 mb-4 space-y-1">
+            <div class="text-[10px] text-zinc-500 flex justify-between">
+              <span>Incoming Raw Buffer:</span>
+              <span id="left-timer" class="font-bold text-red-400">0.0s / 5.0s</span>
+            </div>
+            <div id="left-chunk-text" class="truncate text-red-300 font-bold">
+              {"items": [{"id": 1, "title": "Su
+            </div>
+          </div>
+
+          <!-- Spinner Screen -->
+          <div id="left-spinner-view" class="flex flex-col items-center justify-center py-12 space-y-3">
+            <div class="w-10 h-10 border-4 border-red-500/20 border-t-red-500 rounded-full animate-spin-custom"></div>
+            <div class="text-center">
+              <div class="text-xs font-semibold text-zinc-300">Parser Crashed Mid-Token</div>
+              <div class="text-[10px] text-zinc-500 mt-0.5">Waiting for full stream completion (0 / 4 visible)</div>
+            </div>
+          </div>
+
+          <!-- Resolved Container (At 5.0s) -->
+          <div id="left-resolved-view" class="hidden space-y-2">
+            <div class="text-[10px] font-semibold text-emerald-400 uppercase tracking-wide">Stream Ended (5.0s) - Burst Render:</div>
+            <div class="grid grid-cols-2 gap-2 text-xs" id="left-burst-cards"></div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-red-500/20 text-xs text-zinc-500 flex justify-between items-center">
+          <span>UX: <strong class="text-red-400">Delayed & Jarring</strong></span>
+          <span>Items visible: <strong id="left-item-count" class="text-zinc-400">0 / 4</strong></span>
+        </div>
+      </div>
+
+      <!-- Right: llm-json-repair-stream -->
+      <div class="rounded-xl border border-emerald-500/30 bg-emerald-950/10 p-4 flex flex-col justify-between min-h-[380px]">
+        <div>
+          <div class="flex items-center justify-between pb-2 mb-3 border-b border-emerald-500/20">
+            <span class="text-emerald-400 font-bold text-sm">⚡ llm-json-repair-stream</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              O(n) Progressive Stream
+            </span>
+          </div>
+
+          <div class="bg-black/60 rounded-lg p-2.5 text-xs font-mono text-zinc-400 border border-emerald-500/20 mb-4 space-y-1">
+            <div class="text-[10px] text-zinc-500 flex justify-between">
+              <span>Repaired Snapshot (Valid JSON):</span>
+              <span id="right-timer" class="font-bold text-emerald-400">0.0s / 5.0s</span>
+            </div>
+            <div id="right-snapshot-text" class="truncate text-emerald-300 font-semibold">
+              {"items": [{"id": 1, "name": "Sushi Zen"}]}
+            </div>
+          </div>
+
+          <!-- Progressive Cards Grid -->
+          <div class="grid grid-cols-2 gap-2" id="right-cards-container"></div>
+        </div>
+
+        <div class="pt-3 border-t border-emerald-500/20 text-xs text-zinc-500 flex justify-between items-center">
+          <span>UX: <strong class="text-emerald-400">Smooth & Progressive</strong></span>
+          <span>Items visible: <strong id="right-item-count" class="text-emerald-400">0 / 4</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden canvas for screen recording -->
+    <canvas id="recorder-canvas" width="800" height="420" class="hidden"></canvas>
+  </div>
+
+  <script>
+    const itemsData = [
+      { id: 1, name: "Sushi Zen", rating: "⭐ 4.9", cuisine: "Omakase" },
+      { id: 2, name: "Ramen Toranomon", rating: "⭐ 4.8", cuisine: "Tonkotsu" },
+      { id: 3, name: "Wagyu Ginza", rating: "⭐ 4.9", cuisine: "Teppanyaki" },
+      { id: 4, name: "Matcha Maiko", rating: "⭐ 4.7", cuisine: "Dessert" }
+    ];
+
+    const tokens = [
+      '{"items": [',
+      '{"id": 1, "name": "Su',
+      'shi Zen", "rating": "⭐ 4.9", "cuisine": "Omakase"}, ',
+      '{"id": 2, "name": "Ra',
+      'men Toranomon", "rating": "⭐ 4.8", "cuisine": "Tonkotsu"}, ',
+      '{"id": 3, "name": "Wag',
+      'yu Ginza", "rating": "⭐ 4.9", "cuisine": "Teppanyaki"}, ',
+      '{"id": 4, "name": "Matcha ',
+      'Maiko", "rating": "⭐ 4.7", "cuisine": "Dessert"}]}'
+    ];
+
+    let startTime = null;
+    let animFrame = null;
+    const totalDurationMs = 5000;
+
+    function renderRightCards(visibleCount, partialTitle) {
+      const container = document.getElementById('right-cards-container');
+      container.innerHTML = '';
+
+      for (let i = 0; i < 4; i++) {
+        const item = itemsData[i];
+        if (i < visibleCount) {
+          container.innerHTML += `
+            <div class="p-3 rounded-lg bg-zinc-900 border border-emerald-500/40 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="font-bold text-xs text-white">${item.name}</div>
+                <div class="text-[10px] text-emerald-400 font-medium">${item.cuisine}</div>
+              </div>
+              <div class="text-[10px] text-zinc-400 mt-2 font-mono">${item.rating}</div>
+            </div>
+          `;
+        } else if (i === visibleCount && partialTitle) {
+          container.innerHTML += `
+            <div class="p-3 rounded-lg bg-zinc-900/60 border border-emerald-500/30 border-dashed flex flex-col justify-between animate-pulse">
+              <div>
+                <div class="font-bold text-xs text-emerald-300 flex items-center gap-1">
+                  <span>${partialTitle}</span>
+                  <span class="inline-block w-1.5 h-3 bg-emerald-400 animate-pulse"></span>
+                </div>
+                <div class="text-[10px] text-zinc-500">streaming...</div>
+              </div>
+              <div class="text-[10px] text-zinc-600 mt-2 font-mono">⭐ ...</div>
+            </div>
+          `;
+        } else {
+          container.innerHTML += `
+            <div class="p-3 rounded-lg bg-black/20 border border-zinc-800/80 flex flex-col justify-between opacity-30">
+              <div class="h-3 w-16 bg-zinc-700 rounded mb-1"></div>
+              <div class="h-2 w-10 bg-zinc-800 rounded"></div>
+              <div class="h-2 w-8 bg-zinc-800 rounded mt-3"></div>
+            </div>
+          `;
+        }
+      }
+      document.getElementById('right-item-count').textContent = `${visibleCount} / 4`;
+    }
+
+    function runAnimation(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / totalDurationMs, 1.0);
+      const secondsText = (elapsed / 1000).toFixed(1) + 's / 5.0s';
+
+      document.getElementById('left-timer').textContent = secondsText;
+      document.getElementById('right-timer').textContent = secondsText;
+
+      const tokenIndex = Math.min(Math.floor(progress * tokens.length), tokens.length - 1);
+      document.getElementById('left-chunk-text').textContent = tokens.slice(0, tokenIndex + 1).join('');
+
+      let visibleCount = 0;
+      let partialTitle = '';
+      if (elapsed >= 4200) { visibleCount = 4; }
+      else if (elapsed >= 3600) { visibleCount = 3; partialTitle = 'Matcha...'; }
+      else if (elapsed >= 3100) { visibleCount = 3; }
+      else if (elapsed >= 2500) { visibleCount = 2; partialTitle = 'Wagyu...'; }
+      else if (elapsed >= 1900) { visibleCount = 2; }
+      else if (elapsed >= 1300) { visibleCount = 1; partialTitle = 'Ramen...'; }
+      else if (elapsed >= 800) { visibleCount = 1; }
+      else if (elapsed >= 300) { visibleCount = 0; partialTitle = 'Su...'; }
+
+      renderRightCards(visibleCount, partialTitle);
+
+      const resolvedRightJson = {
+        items: itemsData.slice(0, visibleCount).map(it => ({ id: it.id, name: it.name, rating: it.rating }))
+      };
+      document.getElementById('right-snapshot-text').textContent = JSON.stringify(resolvedRightJson);
+
+      if (elapsed < totalDurationMs) {
+        document.getElementById('left-spinner-view').classList.remove('hidden');
+        document.getElementById('left-resolved-view').classList.add('hidden');
+        document.getElementById('left-item-count').textContent = '0 / 4';
+        document.getElementById('left-status-badge').textContent = 'SyntaxError (Pending)';
+        document.getElementById('left-status-badge').className = 'px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-red-500/20 text-red-400 border border-red-500/30';
+      } else {
+        document.getElementById('left-spinner-view').classList.add('hidden');
+        document.getElementById('left-resolved-view').classList.remove('hidden');
+        document.getElementById('left-item-count').textContent = '4 / 4';
+        document.getElementById('left-status-badge').textContent = 'Done (Burst Render)';
+        document.getElementById('left-status-badge').className = 'px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+
+        const burstContainer = document.getElementById('left-burst-cards');
+        burstContainer.innerHTML = itemsData.map(it => `
+          <div class="p-2.5 rounded bg-zinc-900 border border-zinc-700">
+            <div class="font-bold text-white text-xs">${it.name}</div>
+            <div class="text-[10px] text-zinc-400">${it.cuisine}</div>
+          </div>
+        `).join('');
+      }
+
+      if (elapsed < totalDurationMs) {
+        animFrame = requestAnimationFrame(runAnimation);
+      }
+    }
+
+    function startDemo() {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      startTime = null;
+      renderRightCards(0, '');
+      animFrame = requestAnimationFrame(runAnimation);
+    }
+
+    document.getElementById('btn-replay').addEventListener('click', startDemo);
+
+    document.getElementById('btn-record').addEventListener('click', async () => {
+      const recBtn = document.getElementById('btn-record');
+      const recText = document.getElementById('rec-text');
+      const recDot = document.getElementById('rec-dot');
+
+      recText.textContent = 'Recording 5s Clip...';
+      recDot.className = 'w-2 h-2 rounded-full bg-red-400 animate-ping';
+      recBtn.disabled = true;
+
+      const canvas = document.getElementById('recorder-canvas');
+      const ctx = canvas.getContext('2d');
+      const stream = canvas.captureStream(30);
+      let mediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      } catch {
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
+      const chunks = [];
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'llm-json-repair-stream-demo.webm';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        recText.textContent = 'Download Clip (.webm)';
+        recDot.className = 'w-2 h-2 rounded-full bg-white';
+        recBtn.disabled = false;
+      };
+
+      mediaRecorder.start();
+
+      const recStart = performance.now();
+      function drawFrame(now) {
+        const t = (now - recStart) / 1000;
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, 800, 420);
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText('llm-json-repair-stream (5s Benchmark)', 30, 36);
+
+        ctx.fillStyle = '#71717a';
+        ctx.font = '12px monospace';
+        ctx.fillText(`Elapsed: ${Math.min(t, 5.0).toFixed(1)}s / 5.0s`, 660, 36);
+
+        // Left Box
+        ctx.strokeStyle = '#ef444466';
+        ctx.lineWidth = 1.5;
+        ctx.fillStyle = '#181012';
+        ctx.beginPath();
+        ctx.roundRect(30, 60, 350, 330, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f87171';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText('❌ Standard JSON.parse()', 45, 90);
+
+        if (t < 4.8) {
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(205, 200, 24, 0, Math.PI * 1.5);
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          ctx.fillStyle = '#e4e4e7';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('SyntaxError: Unexpected token', 205, 250);
+          ctx.fillStyle = '#71717a';
+          ctx.font = '11px sans-serif';
+          ctx.fillText('Blocked until complete stream (0 / 4 visible)', 205, 270);
+          ctx.textAlign = 'left';
+        } else {
+          ctx.fillStyle = '#10b981';
+          ctx.font = '12px sans-serif';
+          ctx.fillText('✓ Finished at 5.0s (Burst Render)', 45, 120);
+          itemsData.forEach((item, idx) => {
+            ctx.fillStyle = '#27272a';
+            ctx.fillRect(45, 140 + idx * 55, 320, 45);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText(item.name, 55, 160 + idx * 55);
+            ctx.fillStyle = '#a1a1aa';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(`${item.cuisine} • ${item.rating}`, 55, 176 + idx * 55);
+          });
+        }
+
+        // Right Box
+        ctx.strokeStyle = '#10b98166';
+        ctx.lineWidth = 1.5;
+        ctx.fillStyle = '#0d1a15';
+        ctx.beginPath();
+        ctx.roundRect(410, 60, 360, 330, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText('⚡ llm-json-repair-stream', 425, 90);
+
+        let activeItems = 0;
+        if (t >= 4.0) activeItems = 4;
+        else if (t >= 3.0) activeItems = 3;
+        else if (t >= 1.8) activeItems = 2;
+        else if (t >= 0.8) activeItems = 1;
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = '11px monospace';
+        ctx.fillText(`Progressive rendering: ${activeItems} / 4 items`, 425, 115);
+
+        for (let idx = 0; idx < 4; idx++) {
+          const y = 135 + idx * 60;
+          if (idx < activeItems) {
+            ctx.fillStyle = '#182520';
+            ctx.strokeStyle = '#10b98188';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(425, y, 330, 50, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(itemsData[idx].name, 440, y + 20);
+
+            ctx.fillStyle = '#34d399';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(itemsData[idx].cuisine, 440, y + 36);
+
+            ctx.fillStyle = '#a1a1aa';
+            ctx.font = '10px monospace';
+            ctx.fillText(itemsData[idx].rating, 700, y + 24);
+          } else {
+            ctx.fillStyle = '#121715';
+            ctx.strokeStyle = '#27272a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(425, y, 330, 50, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#3f3f46';
+            ctx.font = 'italic 11px sans-serif';
+            ctx.fillText('Waiting for next chunk...', 440, y + 30);
+          }
+        }
+
+        if (t < 5.2) {
+          requestAnimationFrame(drawFrame);
+        } else {
+          mediaRecorder.stop();
+        }
+      }
+
+      startDemo();
+      requestAnimationFrame(drawFrame);
+    });
+
+    startDemo();
+  </script>
+</body>
+</html>
