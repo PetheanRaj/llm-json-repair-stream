@@ -1,0 +1,64 @@
+{
+  "name": "llm-json-repair-stream",
+  "version": "1.0.0",
+  "description": "Fast, zero-dependency streaming JSON repair and parser for partial LLM outputs (OpenAI, Anthropic, Gemini). Works across Node.js, Bun, Deno, Cloudflare Workers, and Browsers.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "keywords": [
+    "json",
+    "stream",
+    "llm",
+    "repair",
+    "json-repair",
+    "partial-json",
+    "streaming-json",
+    "openai",
+    "anthropic",
+    "gemini",
+    "zero-dependency",
+    "transform-stream"
+  ],
+  "author": "PetheanRaj",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PetheanRaj/llm-json-repair-stream.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PetheanRaj/llm-json-repair-stream/issues"
+  },
+  "homepage": "https://github.com/PetheanRaj/llm-json-repair-stream#readme",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.7"
+  }
+}
